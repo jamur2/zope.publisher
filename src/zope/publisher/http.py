@@ -182,6 +182,13 @@ class LenientCookie(cookies.SimpleCookie):
         except cookies.CookieError as e:
             eventlog.warning(e)
 
+    def __set(self, key, real_value, coded_value):
+        """Private method for setting a cookie's value"""
+        M = self.get(key, cookies.Morsel())
+        M.set(key, real_value, coded_value)
+        dict.__setitem__(self, key, M)
+    # end __set
+
     def _BaseCookie__ParseString(self, str, patt=cookies._CookiePattern):
         i = 0            # Our starting point
         n = len(str)     # Length of string
@@ -208,14 +215,15 @@ class LenientCookie(cookies.SimpleCookie):
                         pass
             elif K.lower() in cookies.Morsel._reserved:
                 if M:
-                    M[ K ] = cookies._unquote(V)
-            else:
+                    if V is None:
+                        if K.lower() in cookies.Morsel._flags:
+                            M[K] = True
+                    else:
+                        M[K] = cookies._unquote(V)
+            elif V is not None:
                 rval, cval = self.value_decode(V)
-                try:
-                    self._BaseCookie__set(K, rval, cval)
-                    M = self[K]
-                except cookies.CookieError as e:
-                    eventlog.warning(e)
+                self.__set(K, rval, cval)
+                M = self[K]
 
     def _BaseCookie__parse_string(self, str, patt=cookies._CookiePattern):
         # Python 3.x support
